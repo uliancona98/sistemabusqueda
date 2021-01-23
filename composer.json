@@ -1,0 +1,5 @@
+{
+    "require": {
+        "minhd/solr-client": "^0.1.8"
+    }
+}

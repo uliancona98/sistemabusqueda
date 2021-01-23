@@ -1,0 +1,27 @@
+#!/usr/bin/env php
+<?php
+// application.php
+
+require __DIR__.'/../vendor/autoload.php';
+
+use Symfony\Component\Console\Application;
+use MinhD\SolrClient\Commands\SolrExportCommand;
+use MinhD\SolrClient\Commands\SolrImportCommand;
+use MinhD\SolrClient\Commands\SolrRunCommand;
+
+$application = new Application();
+
+// ... register commands
+
+$application->add(new SolrExportCommand());
+$application->add(new SolrImportCommand());
+$application->add(new SolrRunCommand());
+$application->run();
+
+// TODO: Remove soon
+function dd()
+{
+    $args = func_get_args();
+    call_user_func_array('var_dump', $args);
+    die();
+}
