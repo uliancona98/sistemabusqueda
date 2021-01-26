@@ -88,6 +88,18 @@ function saveDataRecord($arrData, $link) {
     $bol = $conn->query($sql);
     if(!$bol) {
         $errors['Error'] = "Ocurrió un error al intentar guardar los datos del archivo en la base de datos";
+    }else{
+        $last_id = $conn->insert_id;
+
+        session_start();
+        $_SESSION['id']   =$last_id;
+        $_SESSION['link']  = $link;
+        $_SESSION['title']  = $arrData['Title'];
+        $_SESSION['content']  = $arrData['Content'];
+        $_SESSION['category']  = "Página Web";
+        header("Location: ./../update.php");
+
+
     }
     $conn->close();
     return $bol;

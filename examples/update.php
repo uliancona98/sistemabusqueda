@@ -2,10 +2,8 @@
 
 require_once(__DIR__.'/init.php');
 htmlHeader();
-
-if ($_POST) {
+session_start();
     // if data is posted add it to Solr
-
     // create a client instance
     $client = new Solarium\Client($adapter, $eventDispatcher, $config);
 
@@ -15,10 +13,11 @@ if ($_POST) {
     // create a new document for the data
     // please note that any type of validation is missing in this example to keep it simple!
     $doc = $update->createDocument();
-    $doc->id = $_POST['id'];
-    $doc->name = $_POST['name'];
-    $doc->price = $_POST['price'];
-
+    $doc->id =  $_SESSION['id'];
+    $doc->url = $_SESSION['link'] ;
+    $doc->title = $_SESSION['title'];
+    $doc->category = $_SESSION['category'];
+    $doc->content = $_SESSION['content'];
     // add the document and a commit command to the update query
     $update->addDocument($doc);
     $update->addCommit();
@@ -30,18 +29,5 @@ if ($_POST) {
     echo 'Query status: ' . $result->getStatus(). '<br/>';
     echo 'Query time: ' . $result->getQueryTime();
 
-} else {
     // if no data is posted show a form
-    ?>
-
-    <form method="POST">
-        Id: <input type="text" name="id"/> <br/>
-        Name: <input type="text" name="name"/> <br/>
-        Price: <input type="text" name="price"/> <br/>
-        <input type="submit" value="Add"/>
-    </form>
-
-    <?php
-}
-
 htmlFooter();
