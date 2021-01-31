@@ -8,13 +8,14 @@ class Lexer{
     private $_tokens = array();
     private $_correctoSintactico;
     protected $_afd = array(
-        0 => array(false, false, 1, false, false),
+        0 => array(6, false, 1, false, false),
         1 => array(2, false, false, false, false),
         2 => array(2, 3, false, 4, false),
         3 => array(2, false, false, false, false),
         4 => array(false, 5, false, false, true),
-        5 => array(false, false, 1, false, false)
-
+        5 => array(false, false, 1, false, false),
+        6 => array(6, 7, false, false, true),
+        7 => array(6, false, false, false, false)
     );
 
 function getTokensArray(){
@@ -117,18 +118,21 @@ function getCorrectoSintactico(){
 
     function buscarExpresion($c=null){
         if($c==null) $c = $this->_token;
+        $i=0;
         foreach($this->_tokenList as $exp => $name){
            $result = strcasecmp($exp, $c);
            if($result == 0){
             return $name;
            }else{
-               if (preg_match("/\w/", $c)) {
-                   return "WORD";
-               }else{
-                   return false;
+               if((count($this->_tokenList)-1)==$i){
+                    if (preg_match("/\w/", $c)) {
+                        return "WORD";
+                    }else{
+                        return false;
+                    }
                }
-
-           } 
+           }
+           $i++; 
         }
         //return false;
     }

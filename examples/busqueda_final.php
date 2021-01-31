@@ -20,14 +20,10 @@
         <h1>Ingresa una busqueda</h1>
         <p>Para que tu busqueda sea exitosa tiene que empezar con un '(' y terminar
              con ')' y cada palabra y caracter debe estar separada por espacio.</p>
-        <p> - (galletas AND calabaza)<br>
-            - (galletas OR calabaza) NOT (donas NOT pera)<br>
-            - (galletas papas OR calabaza) AND (donas OR pera)<br>
-            - (carne leche)<br>
-            Se acepta también la consulta de una frase sin parentesis ejemplo: <br> 
-            -carne AND leche <br>
-            -carne leche huevo <br>
-            -CARNE AND leche NOT huevo
+        <p>Ejemplo 1: (galletas AND calabaza)<br>
+            Ejemplo 2: (galletas OR calabaza) NOT (donas NOT pera)<br>
+            Ejemplo 3: (galletas papas OR calabaza) AND (donas OR pera)<br>
+            Ejemplo 4: (carne leche)<br>
         </p>
         <form action="" method="GET">
             <label for="query"></label>
@@ -51,8 +47,6 @@
     }
     //Funcion que checa que los tokens esten correctos
     function checarTokens($consulta){
-        global $correctoAnalizadorSintactico;
-        $array_tokns=array();
         global $terminosConsultaExpandida;
         $_delimitadores = ' '; 
         $token = strtok($consulta, $_delimitadores);
@@ -156,10 +150,8 @@
         $terminos = array();
         if($lexer->getCorrectoSintactico()==true){
             echo("correct");
-            $correctoAnalizadorSintactico = true;
             $array_tokns=$lexer->getTokensArray();    
         }else{
-            $correctoAnalizadorSintactico = false;
             echo "Sintaxis errónea";
         }
         return $array_tokns;
@@ -167,13 +159,12 @@
 
     //Hace expansion de consulta
     function expansionConsulta($arrayTokens){
-        
         global $terminosConsultaExpandida;
         global $terminosConsulta;
         $query="";
-        echo "<pre>";
+        /*echo "<pre>";
         print_r($arrayTokens);
-        echo "</pre>";
+        echo "</pre>";*/
         foreach($arrayTokens as $key => $value){
             if($value['token']=='WORD'){
                 //echo ($value['lexema']);
@@ -256,7 +247,7 @@
         echo "</pre>";*/
         echo "Correciones";
         //Correciones
-        spellChecker();
+        spellChecker($q);
         //Fin correciones
 
         echo "Sugerencias";
@@ -267,8 +258,6 @@
         // create a client instance
         global $facetMenu;
         global $client;
-        global $results;
-
         // get a select query instance
 
         // get the facetset component
@@ -279,10 +268,7 @@
         $facetSet->createFacetField('cat')->setField('category'); //faceta
 
         //Highlight
-        $query->getHighlighting()->setRequireFieldMatch(true);
         $hl = $query->getHighlighting();
-
-
         $hl->setFields('title, content', "category");
         $hl->setSimplePrefix('<b>');
         $hl->setSimplePostfix('</b>');
@@ -306,91 +292,79 @@
         echo "<pre>";
         print_r($facetMenu);
         echo "</pre>";
-       // var_dump($resultset);
+        var_dump($resultset);
         foreach ($resultset as $document) {
+            echo '<hr/><table>';
+        // the documents are also iterable, to get all fields
+            //foreach ($document as $field => $value) {
+                // this converts multivalue fields to a comma-separated string
+                echo '<tr><th>' . 'Id: ' . '</th><td>' . $document->id . '</td></tr>';
+                if (is_array($document->url)) {
+                    $value = implode(', ', $document->url);
+                }
+                echo '<tr><th>' . 'URL: ' . '</th><td><a href="' . $value . '">'.$value.'</a></td></tr>';
+                echo '<tr><th>' . 'Title: ' . '</th><td>' . $document->title . '</td></tr>';
+                if (is_array($document->category)) {
+                    $value = implode(', ', $document->category);
+                }
+                echo '<tr><th>' . 'Categories: ' . '</th><td>' . $value . '</td></tr>';
+                echo '<tr><th>' . 'Score: ' . '</th><td>' . $document->score . '</td></tr>';
+
+            //}
+            echo '</table>';
+
+        // highlighting results can be fetched by document id (the field defined as uniquekey in this schema)
             echo '</table><br/><b>Highlighting results:</b><br/>';
             $highlightedDoc = $highlighting->getResult($document->id);
             if ($highlightedDoc) {
-                $highlightString = '';
                 foreach ($highlightedDoc as $field => $highlight) {
-                    $highl = implode(' (...) ', $highlight) . '<br/>';
-                    $highlightString=$highlightString.$highl;
-                    
-                    //echo implode(' (...) ', $highlight) . '<br/>';
+                    echo implode(' (...) ', $highlight) . '<br/>';
                 }
-                if(strlen($highlightString)>0){
-                    echo '<hr/><table>';
-                    echo '<tr><th>' . 'Id: ' . '</th><td>' . $document->id . '</td></tr>';
-                    if (is_array($document->url)) {
-                        $url = implode(', ', $document->url);
-                    }
-                    echo '<tr><th>' . 'URL: ' . '</th><td><a href="' . $value . '">'.$value.'</a></td></tr>';
-                    echo '<tr><th>' . 'Title: ' . '</th><td>' . $document->title . '</td></tr>';
-                    if (is_array($document->category)) {
-                        $value = implode(', ', $document->category);
-                    }
-                    echo '<tr><th>' . 'Categories: ' . '</th><td>' . $value . '</td></tr>';
-                    echo '<tr><th>' . 'Score: ' . '</th><td>' . $document->score . '</td></tr>';
-    
-                    //}
-                    echo '</table>';
-                    
-                    $results[]=array(
-                        "id" =>$document->id,
-                        "title" => $document->title,
-                        "url" => $url,
-                        "category" =>$document->category,
-                        "snippet" => $highlightString,
-                        "score" => $document->score,
-                        );
-                }
-
             }
+
+
         }
     }
 
-    function spellChecker(){
-        global $correciones, $client, $terminosConsulta;
+    function spellChecker($q){
+        global $correciones, $client;
         // get a select query instance
-        foreach($terminosConsulta as $key => $value){
-            $query = $client->createSelect()
+        $query = $client->createSelect()
             // Unfortunately the /select handler of the techproducts example doesn't contain a spellchecker anymore.
             // Therefore we have to use the /browse handler and turn of velocity by forcing json as response writer.
             ->setHandler('browse')
             ->setResponseWriter(\Solarium\Core\Query\AbstractQuery::WT_JSON)
             // Normally we would use 'spellcheck.q'. But the /browse handler checks 'q'.
-            ->setQuery($value)
+            ->setQuery($q)
             ->setRows(0);
 
-            // add spellcheck settings
-            $spellcheck = $query->getSpellcheck()
-                ->setCount(10)
-                ->setBuild(true)
-                ->setCollate(true)
-                ->setExtendedResults(true)
-                ->setCollateExtendedResults(true)
-                ->setDictionary('default');
+        // add spellcheck settings
+        $spellcheck = $query->getSpellcheck()
+            ->setCount(10)
+            ->setBuild(true)
+            ->setCollate(true)
+            ->setExtendedResults(true)
+            ->setCollateExtendedResults(true)
+            ->setDictionary('default');
 
-            // this executes the query and returns the result
-            $resultset = $client->select($query);
-            $spellcheckResult = $resultset->getSpellcheck();
-            $collations = $spellcheckResult->getCollations();
-            /*echo '<h1>Collations</h1>';
-            echo "<pre>";
-            echo "</pre>";*/
-            
-            foreach ($collations as $collation) {
-                /*echo 'Query: '.$collation->getQuery().'<br/>';
-                echo 'Hits: '.$collation->getHits().'<br/>';*/
-                echo 'Correciones:<br/>';
-                foreach ($collation->getCorrections() as $input => $correction) {
-                    $correciones[] = $input . ' => ' . $correction;
-                    echo $input . ' => ' . $correction .'<br/>';
-                }
-                echo '<hr/>';
+        // this executes the query and returns the result
+        $resultset = $client->select($query);
+        $spellcheckResult = $resultset->getSpellcheck();
+        $collations = $spellcheckResult->getCollations();
+        /*echo '<h1>Collations</h1>';
+        echo "<pre>";
+        echo "</pre>";*/
+        
+        foreach ($collations as $collation) {
+            /*echo 'Query: '.$collation->getQuery().'<br/>';
+            echo 'Hits: '.$collation->getHits().'<br/>';*/
+            echo 'Correciones:<br/>';
+            foreach ($collation->getCorrections() as $input => $correction) {
+                $correciones[] = $input . ' => ' . $correction;
+                echo $input . ' => ' . $correction .'<br/>';
+            }
+            echo '<hr/>';
         }
-        }
-
     }
 
     function suggestions($q){
@@ -440,59 +414,25 @@
     $correciones = array();
     $terminosConsultaExpandida = array();
     $terminosConsulta = array();
-    $results = array();
-    $correctoAnalizadorSintactico = false;
-
     $q = '';
     $client = new Solarium\Client($adapter, $eventDispatcher, $config);
     
     if(isset($_GET['query'])){
         $arrayTokens = checarTokens($_GET['query']);
-        
-        if($correctoAnalizadorSintactico){
-            $queryExpandida = expansionConsulta($arrayTokens);
-            //var_dump($terminosConsultaExpandida);
-            //Expansión de la consulta con datamuse
-            busqueda($queryExpandida);
-            echo "<pre>";
-            print_r($results);
-            echo "</pre>";
-    
-            echo "<pre>";
-            print_r($facetMenu);
-            echo "</pre>";
-            
-            echo "<pre>";
-            print_r($sugerencias);
-            echo "</pre>";
-    
-            echo "<pre>";
-            print_r($correciones);
-            echo "</pre>";
-        }else{
-            echo "Error en tu consulta";
-        }
-
+        $queryExpandida = expansionConsulta($arrayTokens);
+        var_dump($terminosConsultaExpandida);
+        //Expansión de la consulta con datamuse
+        busqueda($queryExpandida);
     }
     if (isset($_GET['idFaceta'])) {
-        $categoria = 1;
         busquedaFaceta($_GET['idFaceta']);
     }
 
-    function getSuggestions(){
-        global $sugerencias;
-        echo json_encode($sugerencias); 
-    }
-    function getCorrecciones(){
-        global $correciones;
-        echo json_encode($correciones); 
-    }
-    function getCategorias(){
-        global $facetMenu;
-        echo json_encode($facetMenu); 
-    }
-    function getResultados(){
-        global $results;
-        echo json_encode($results); 
-    }
     ?>
+    <script>
+    async function removeday(e) {
+      e.preventDefault(); 
+      console.log(e.target.id);
+      document.body.innerHTML+=await(await fetch('?idFaceta='+e.target.id)).text();
+    }
+    </script>
