@@ -7,6 +7,7 @@ $servername = "localhost";
 $username = "root";
 $password = "";
 $dbname = "crawler";
+session_start();
 
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
@@ -22,40 +23,62 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         fclose($archivo);
         
         //removeRecordsFromDB();
-        foreach($links as $target) {
-            if(!empty($target)) {
-                $documentId = getDocumentID($target);
-                $arr = generate($target, getLastModifiedIfExists($target));
-                if(!empty($arr)) {
-                    if(!isset($str['Error'])) {
-                        if($documentId == 0) {
-                            saveDataRecord($arr, $target);
-                        } else {
-                            updateDataRecord($arr, $documentId);
-                        }
-                    } else {
-                        $errors[] = array (
-                            'link' => $str['Error']
-                        );
-                    }
+        foreach($links as $targetWithTags) {
+            if(!empty($targetWithTags)) {
+                $arrData = explode(" ", $targetWithTags);
+                $target = $arrData[0];
+                $tag = array();
+                if(count($arrData)>1) {
+                    $tag = explode(":", $arrData[1]);
                 }
-                
-                $urls = getUrls($target);
-                foreach($urls as $url) {
-                    $dId = getDocumentID($url);
-                    $str = generate($url, getLastModifiedIfExists($url));
-                    if(!empty($str)) {
-                        if(!isset($str['Error'])) {
-                            if($dId == 0) {
-                                saveDataRecord($str, $url);
+                $documentId = getDocumentID($target);
+                try {
+                    $arr = generate($target, getLastModifiedIfExists($target), $documentId == 0 ? false: true);
+                    if(!empty($arr)) {
+                        if(!isset($arr['Error'])) {
+                            $arr['Tags'] = $tag;
+                            if($documentId == 0) {
+                                saveDataRecord($arr, $target);
                             } else {
-                                updateDataRecord($str, $dId);
+                                updateDataRecord($arr, $documentId);
                             }
                         } else {
                             $errors[] = array (
-                                'link' => $str['Error']
+                                'link' => $url,
+                                'Error' => $arr['Error']
                             );
                         }
+                    }
+                } catch(Exception $ex) {
+                    $errors[] = array (
+                        'link' => $ex->getMessage()
+                    );
+                }
+                
+                $urls = getUrls($target, 10);
+                foreach($urls as $url) {
+                    $dId = getDocumentID($url);
+                    try {
+                        $str = generate($url, getLastModifiedIfExists($url), $dId == 0 ? false: true);
+                        if(!empty($str)) {
+                            if(!isset($str['Error'])) {
+                                $str['Tags'] = $tag;
+                                if($dId == 0) {
+                                    saveDataRecord($str, $url);
+                                } else {
+                                    updateDataRecord($str, $dId);
+                                }
+                            } else {
+                                $errors[] = array (
+                                    'link' => $url,
+                                    'Error' => $str['Error']
+                                );
+                            }
+                        }
+                    } catch(Exception $ex) {
+                        $errors[] = array (
+                            'link' => $ex->getMessage()
+                        );
                     }
                 }
             }
@@ -73,8 +96,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         echo json_encode(removeRecordsFromDB());
     }
 } else {
-    //$pages = array("http://localhost/BRIW/crawler/test/test.html");//, "http://www.schrenk.com/nostarch/webbots/page_with_broken_links.php", "https://developer.mozilla.org/es/docs/Web/HTML", "https://es.wikipedia.org/wiki/HTML");
-    //foreach($pages as $target) {
+    //$pages = array("http://localhost/BRIW/crawler/test/test.html", "https://en.wikipedia.org/wiki/Coronavirus_disease_2019");//, "http://www.schrenk.com/nostarch/webbots/page_with_broken_links.php", "https://developer.mozilla.org/es/docs/Web/HTML", "https://es.wikipedia.org/wiki/HTML");
+    //var_dump($pages);
+    //foreach($pages as $targetWithTags) {
     //}
 }
 
@@ -89,17 +113,17 @@ function saveDataRecord($arrData, $link) {
     if(!$bol) {
         $errors['Error'] = "Ocurrió un error al intentar guardar los datos del archivo en la base de datos";
     }else{
-        $last_id = $conn->insert_id;
+        var_dump($arrData['Tags']);
 
-        session_start();
-        $_SESSION['id']   =$last_id;
+        $last_id = $conn->insert_id;
+        var_dump($arrData['Tags']);
+
+       $_SESSION['id_page']   =$last_id;
         $_SESSION['link']  = $link;
         $_SESSION['title']  = $arrData['Title'];
         $_SESSION['content']  = $arrData['Content'];
-        $_SESSION['category']  = "Página Web";
+        $_SESSION['category']  =$arrData['Tags'];
         header("Location: ./../update.php");
-
-
     }
     $conn->close();
     return $bol;

@@ -1,1 +1,1 @@
-http://localhost/BRIW/crawler/test/test.html
+http://localhost/sistemabusqueda/examples/test/test59.html cat6

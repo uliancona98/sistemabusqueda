@@ -7,7 +7,7 @@ include("../src/LanguageDetection/Language.php");
 include("../src/inflector/inflector.php");
 use ICanBoogie\Inflector;
 
-function generate($link, $lastM) {
+function generate($link, $lastM, $exists) {
     //$page_base = get_base_page_address($link);
     $strHTML = '';
     $downloaded_page = http_get_withheader($link, '');
@@ -15,14 +15,16 @@ function generate($link, $lastM) {
         $content_type=$downloaded_page['STATUS']['content_type'];
 		$strStatus=$downloaded_page['STATUS'];
         $code=$strStatus["http_code"];
-        if (($code!=200 && $code!=206) || strpos(strtolower($content_type),"text")===false) {
+        if ($code!=200 && $code!=206) {
             return array('Error'=>'La página respondió con un estatus diferente a 200 0 206');
+        } else if(strpos(strtolower($content_type),"text")===false) {
+            return array('Error'=>'La página no es texto plano');
         }else{
             if ($code ==200 || $code ==206){ //&& strpos(strtolower($content_type),"text")===true) {
                 $content = $downloaded_page['FILE'];
                 $lastModified = getLastModified($content);
                 if($lastM) {
-                    if ($lastM == $lastModified) {
+                    if (($lastM == $lastModified) && $exists) {
                         return null;
                     }
                 }
@@ -59,16 +61,18 @@ function getStrHTML($content, $url) {
     return $strHTML;
 }
 
-function getUrls($target) {
+function getUrls($target, $maxUrls) {
     $urls = array();
     $downloaded_page = http_get($target, '');
     if ($downloaded_page['ERROR'] == '') {
         $link_array = parse_array($downloaded_page['FILE'], $beg_tag="<a", $close_tag=">");
-        for($xx=0; $xx<count($link_array); $xx++)
+        $count = $maxUrls > count($link_array) ? count($link_array) : $maxUrls;
+        for($xx=0; $xx<$count; $xx++)
         {
             
             $link = get_attribute($tag=$link_array[$xx], $attribute="href");
-            $resolved_link_address = resolve_address($link, "");
+            $page_base = get_base_page_address($link);
+            $resolved_link_address = resolve_address($link, $page_base);
             $downloaded_link = http_get($resolved_link_address, $target);
             if($downloaded_link['STATUS']['http_code'] == 200) {
                 $urls[] = $downloaded_link['STATUS']['url'];
