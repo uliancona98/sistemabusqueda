@@ -1,22 +1,52 @@
 <?php
+use Solarium\Core\Client\Adapter\Curl;
+use Symfony\Component\EventDispatcher\EventDispatcher;
+error_reporting(E_ALL);
+ini_set('display_errors', true);
+
+if (file_exists('config.php')) {
+    require('config.php');
+}
+require $config['autoload'] ?? __DIR__.'/../vendor/autoload.php';
+$adapter = new Curl();
+$eventDispatcher = new EventDispatcher();
+//-------------------
+require("lexer.php");
+$facetMenu = array();
+$sugerencias = array();
+$correciones = array();
+$terminosConsultaExpandida = array();
+$terminosConsulta = array();
+$results = array();
+/*echo '<script>';
+echo 'console.log('.'"ajaja"' .')';
+echo '</script>';*/
+$correctoAnalizadorSintactico = false;
+
+$q = '';
+$client = new Solarium\Client($adapter, $eventDispatcher, $config);
 
 
 if(isset($_GET['query'])) {
-    //$client = new Solarium\Client($adapter, $eventDispatcher, $config);
-
-    suggestions();
-    echo getSugestions();
+    echo '<script>';
+    echo 'console.log('.'"ajfaja"' .')';
+    echo '</script>';
+    //echo getSugestions();
     return;
 } 
 if(isset($_GET['search'])){
     // echo getCorrections();
     // echo getCategories();
+    echo '<script>';
+    echo 'console.log('. json_encode( $_GET['search'] ) .')';
+    echo '</script>';
     $res = getResults();
     $cat = getCategories();
     $cor = getCorrections();
     echo json_encode(['results' => $res, 'categories'=>$cat, 'corrections'=>$cor]);
     // return;
 }
+
 /*if(isset($_GET['query'])){
     $arrayTokens = checarTokens($_GET['query']);
     
@@ -113,15 +143,9 @@ function getCorrections() {
 }
 
 function getSugestions() {
-    //global $sugerencias;
-    //suggestions();
-    //var_dump($sugerencias);
-    $sugestions = ['a  lex', 'carlos', 'andrea', '1234', '234', '345'];
-
-    /*echo '<script>';
-    echo 'console.log('. json_encode( $sugestions ) .')';
-    echo '</script>';*/
-    $arr = array_values(array_filter($sugestions, 'filter'));
+    global $sugerencias;
+    //$sugestions = ['a  lex', 'carlos', 'andrea', '1234', '234', '345'];
+    $arr = array_values(array_filter($sugerencias, 'filter'));
     return json_encode($arr);
 }
 
@@ -188,7 +212,7 @@ function checarTokens($consulta){
                 //echo("FOUND");
                 foreach($found as $pos) {
                     if($pos==0){
-                        //echo $value;
+                        echo $value;
                         $expl = explode('(', $value);
                         //var_dump($expl);
                         if(strlen($value)==1){
@@ -261,7 +285,7 @@ function checarTokens($consulta){
                     }
                 }   
             } else {
-                //echo " not found in";
+                echo " not found in";
             }
             
         }else{
@@ -273,12 +297,12 @@ function checarTokens($consulta){
     $lexer = new Lexer($array_tokens);
     $terminos = array();
     if($lexer->getCorrectoSintactico()==true){
-        //echo("correct");
+        echo("correct");
         $correctoAnalizadorSintactico = true;
         $array_tokns=$lexer->getTokensArray();    
     }else{
         $correctoAnalizadorSintactico = false;
-        //echo "Sintaxis errónea";
+        echo "Sintaxis errónea";
     }
     return $array_tokns;
 }
@@ -289,18 +313,26 @@ function expansionConsulta($arrayTokens){
     global $terminosConsultaExpandida;
     global $terminosConsulta;
     $query="";
+    echo "<pre>";
+    print_r($arrayTokens);
+    echo "</pre>";
     foreach($arrayTokens as $key => $value){
         if($value['token']=='WORD'){
+            //echo ($value['lexema']);
+            //foreach($terminosConsultaExpandida as $termino){
                 $urlDatamuse = "https://api.datamuse.com/words?ml=".$value['lexema']."&v=es&max=3";
                 $jsonDatamuse = file_get_contents($urlDatamuse);
                 $datosDatamuse = json_decode($jsonDatamuse,true);
+                //echo $urlDatamuse; 
     
                 $elementosArray=count($datosDatamuse);
                 $contador =0;
                 $terminosConsulta[]=$value['lexema'];
                 $query = $query."(".$value['lexema'];
                 $fin = 0;
-                foreach($datosDatamuse as $key => $datos){                    
+                foreach($datosDatamuse as $key => $datos){
+                    //$consultaExpandida[] = "and";  //¿Le concateno ands? Segun yo no importa, terminos seguidos son por default and en las dos api
+                    
                     if(strcasecmp($datos["word"], $value['lexema']) != 0){//son diferentes insensitivo
                         if($contador == 0){
                             if($contador == ($elementosArray-1)){
@@ -327,6 +359,12 @@ function expansionConsulta($arrayTokens){
                     $query = $query.")";
 
                 }
+                /*echo "<pre>";
+                print_r($datosDatamuse);
+                echo "</pre>";*/
+            //}
+
+
         }else{
             if($key==0){
                 $query = $query.$value['lexema']."";
@@ -338,7 +376,7 @@ function expansionConsulta($arrayTokens){
         }
 
     }
-    //echo ($query);
+    echo ($query);
     return $query;
 }
 
@@ -351,14 +389,20 @@ function busqueda($queryExpandida){
     foreach($terminosConsulta as $key => $valor){
         $q = $q." ".$valor;
     }
-    //echo $q;
-    //echo "Correciones";
+    echo $q;
+    /*echo "<pre>";
+    print_r($terminosConsulta);
+    echo "</pre>";
+    echo "<pre>";
+    print_r($terminosConsultaExpandida);
+    echo "</pre>";*/
+    echo "Correciones";
     //Correciones
     spellChecker();
     //Fin correciones
 
-    //echo "Sugerencias";
-    //suggestions();
+    echo "Sugerencias";
+    suggestions($q);
 }
 //Hace la busca en Solr
 function busquedaSolr($q){
@@ -367,7 +411,9 @@ function busquedaSolr($q){
     global $client;
     global $results;
 
+    // get a select query instance
 
+    // get the facetset component
     $query = $client->createSelect();
     $query->setQuery($q);
     $facetSet = $query->getFacetSet();
@@ -385,19 +431,26 @@ function busquedaSolr($q){
     //Highlight
     $resultset = $client->select($query);
     $highlighting = $resultset->getHighlighting();
-    //echo '<b>Query:</b> '.$query->getQuery().'<hr/>';
+    echo '<b>Query:</b> '.$query->getQuery().'<hr/>';
 
-    //echo 'Se han encontrado: '.$resultset->getNumFound().' resultados';
+    // display the total number of documents found by Solr
+    echo 'Se han encontrado: '.$resultset->getNumFound().' resultados';
 
-    //echo '<hr/>Facet counts for field "category":<br/>';
+    // display facet counts
+    echo '<hr/>Facet counts for field "category":<br/>';
     $facet = $resultset->getFacetSet()->getFacet('cat');
     $i=0;
     foreach ($facet as $value => $count) {
         $facetMenu[] = array($value, $count);
-        //echo '<a href="" id="'.$value.'" onclick="removeday(event)"> '.$value.' [' . $count . ']</a><br/>';
+        echo '<a href="" id="'.$value.'" onclick="removeday(event)"> '.$value.' [' . $count . ']</a><br/>';
         $i++;
     }
+    echo "<pre>";
+    print_r($facetMenu);
+    echo "</pre>";
+   // var_dump($resultset);
     foreach ($resultset as $document) {
+        echo '</table><br/><b>Highlighting results:</b><br/>';
         $highlightedDoc = $highlighting->getResult($document->id);
         if ($highlightedDoc) {
             $highlightString = '';
@@ -405,15 +458,24 @@ function busquedaSolr($q){
                 $highl = implode(' (...) ', $highlight) . '<br/>';
                 $highlightString=$highlightString.$highl;
                 
+                //echo implode(' (...) ', $highlight) . '<br/>';
             }
             if(strlen($highlightString)>0){
+                echo '<hr/><table>';
+                echo '<tr><th>' . 'Id: ' . '</th><td>' . $document->id . '</td></tr>';
                 if (is_array($document->url)) {
                     $url = implode(', ', $document->url);
                 }
+                echo '<tr><th>' . 'URL: ' . '</th><td><a href="' . $value . '">'.$value.'</a></td></tr>';
+                echo '<tr><th>' . 'Title: ' . '</th><td>' . $document->title . '</td></tr>';
                 if (is_array($document->category)) {
                     $value = implode(', ', $document->category);
                 }
+                echo '<tr><th>' . 'Categories: ' . '</th><td>' . $value . '</td></tr>';
+                echo '<tr><th>' . 'Score: ' . '</th><td>' . $document->score . '</td></tr>';
 
+                //}
+                echo '</table>';
                 
                 $results[]=array(
                     "id" =>$document->id,
@@ -431,13 +493,18 @@ function busquedaSolr($q){
 
 function spellChecker(){
     global $correciones, $client, $terminosConsulta;
+    // get a select query instance
     foreach($terminosConsulta as $key => $value){
         $query = $client->createSelect()
+        // Unfortunately the /select handler of the techproducts example doesn't contain a spellchecker anymore.
+        // Therefore we have to use the /browse handler and turn of velocity by forcing json as response writer.
         ->setHandler('browse')
         ->setResponseWriter(\Solarium\Core\Query\AbstractQuery::WT_JSON)
+        // Normally we would use 'spellcheck.q'. But the /browse handler checks 'q'.
         ->setQuery($value)
         ->setRows(0);
 
+        // add spellcheck settings
         $spellcheck = $query->getSpellcheck()
             ->setCount(10)
             ->setBuild(true)
@@ -446,50 +513,30 @@ function spellChecker(){
             ->setCollateExtendedResults(true)
             ->setDictionary('default');
 
+        // this executes the query and returns the result
         $resultset = $client->select($query);
         $spellcheckResult = $resultset->getSpellcheck();
         $collations = $spellcheckResult->getCollations();
+        /*echo '<h1>Collations</h1>';
+        echo "<pre>";
+        echo "</pre>";*/
         
         foreach ($collations as $collation) {
+            /*echo 'Query: '.$collation->getQuery().'<br/>';
+            echo 'Hits: '.$collation->getHits().'<br/>';*/
+            echo 'Correciones:<br/>';
             foreach ($collation->getCorrections() as $input => $correction) {
                 $correciones[] = $input . ' => ' . $correction;
+                echo $input . ' => ' . $correction .'<br/>';
             }
-        }
+            echo '<hr/>';
+    }
     }
 
 }
-function suggestions(){
-    global $sugerencias, $client;
-    $q = $_GET['query'];
-    //$query = $client->createSuggester();
-    //$query->setQuery($q);
-    //$array = array("mySuggester","mySuggester2");
-    //$query->setDictionary($array);
 
-    /*$query->setBuild(true);
-    $query->setCount(10);
-    
-    $resultset = $client->suggester($query);
-    
-
-    foreach ($resultset as $dictionary => $terms) {
-        //echo '<h3>' . $dictionary . '</h3>';
-        foreach ($terms as $term => $termResult) {
-            //echo '<h4>' . $term . '</h4>';
-            //echo 'NumFound: '.$termResult->getNumFound().'<br/>';
-            foreach ($termResult as $result) {
-                $sugerencias[] = $result['term'];
-                //echo '- '.$result['term'].'<br/>';
-            }
-        }
-    
-        //echo '<hr/>';
-    }*/
-    return json_encode(['s','as']);
-}
-function suggestions1(){
+function suggestions($q){
     global $sugerencias, $client;
-    $q = $_GET['query'];
     $query = $client->createSuggester();
     $query->setQuery($q);
     $array = array("mySuggester","mySuggester2");
@@ -498,57 +545,36 @@ function suggestions1(){
     $query->setBuild(true);
     $query->setCount(10);
     
+    // this executes the query and returns the result
     $resultset = $client->suggester($query);
     
 
+    // displa  y results for each term
     foreach ($resultset as $dictionary => $terms) {
-        //echo '<h3>' . $dictionary . '</h3>';
+        echo '<h3>' . $dictionary . '</h3>';
         foreach ($terms as $term => $termResult) {
-            //echo '<h4>' . $term . '</h4>';
-            //echo 'NumFound: '.$termResult->getNumFound().'<br/>';
+            echo '<h4>' . $term . '</h4>';
+            echo 'NumFound: '.$termResult->getNumFound().'<br/>';
             foreach ($termResult as $result) {
                 $sugerencias[] = $result['term'];
-                //echo '- '.$result['term'].'<br/>';
+                echo '- '.$result['term'].'<br/>';
             }
         }
     
-        //echo '<hr/>';
+        echo '<hr/>';
     }
 }
-
 function busquedaFaceta($cat){
     global $q;
     $queryFaceta = $q. " AND category:".$cat;
-    //var_dump($queryFaceta);
+    var_dump($queryFaceta);
     busquedaSolr($queryFaceta);
+    //$arrayTokens = checarTokens();
+    //$queryExpandida = expansionConsulta($arrayTokens);
+    //Expansión de la consulta con datamuse
+
+    //busquedaSimple($);
 }
 
-use Solarium\Core\Client\Adapter\Curl;
-use Symfony\Component\EventDispatcher\EventDispatcher;
-error_reporting(E_ALL);
-ini_set('display_errors', true);
-
-if (file_exists('config.php')) {
-    require('config.php');
-}
-require $config['autoload'] ?? __DIR__.'/../vendor/autoload.php';
-$adapter = new Curl();
-$eventDispatcher = new EventDispatcher();
-
-require("lexer.php");
-
-$facetMenu = array();
-$sugerencias = array();
-$correciones = array();
-$terminosConsultaExpandida = array();
-$terminosConsulta = array();
-$results = array();
-
-/*echo '<script>';
-echo 'console.log('.'"ajaja"' .')';
-echo '</script>';*/
-$correctoAnalizadorSintactico = false;
-
-$q = '';
 
 ?>

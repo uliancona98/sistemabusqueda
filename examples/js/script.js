@@ -2,7 +2,7 @@
 let timeout = null;
 const input = document.querySelector('input[type="search"]');
 input.addEventListener('input', updateInputValue);
-input.addEventListener('blur', deleteOptions);
+input.addEventListener('blur', ()=>{ setTimeout (deleteOptions, 150); });
 
 const button = document.querySelector('button[type="submit"]');
 button.addEventListener('click', (evt)=>{searchQuery(input.value.trimStart())});
