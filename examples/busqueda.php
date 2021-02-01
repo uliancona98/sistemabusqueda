@@ -10,36 +10,7 @@
     require $config['autoload'] ?? __DIR__.'/../vendor/autoload.php';
     $adapter = new Curl();
     $eventDispatcher = new EventDispatcher();
-?>
-<html>
-    <head>
-        <title>Sistema de busqueda Solr</title>
-    </head>
-    <body>
-        <article>
-        <h1>Ingresa una busqueda</h1>
-        <p>Para que tu busqueda sea exitosa tiene que empezar con un '(' y terminar
-             con ')' y cada palabra y caracter debe estar separada por espacio.</p>
-        <p> - (galletas AND calabaza)<br>
-            - (galletas OR calabaza) NOT (donas NOT pera)<br>
-            - (galletas papas OR calabaza) AND (donas OR pera)<br>
-            - (carne leche)<br>
-            Se acepta también la consulta de una frase sin parentesis ejemplo: <br> 
-            -carne AND leche <br>
-            -carne leche huevo <br>
-            -CARNE AND leche NOT huevo
-        </p>
-        <form action="" method="GET">
-            <label for="query"></label>
-            <input type="text" name="query" id="">
-            <button type="submit" name="button">Enviar</button>
-        </form>
-        
-        </article><br>
-    </body>
-</html>
-<?php
-    //htmlFooter();
+
     function strpos_recursive($haystack, $needle, $offset = 0, &$results = array()) {               
         $offset = strpos($haystack, $needle, $offset);
         if($offset === false) {
