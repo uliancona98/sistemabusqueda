@@ -31,7 +31,7 @@ function getOptions(strValue) {
                 
             }
         };
-        let phpFile = 'operations.php';
+        let phpFile = 'op.php';
         let variable = 'query';
         xmlHttp.open('GET', `${phpFile}?${variable}=${strValue}`, true);
         xmlHttp.send();

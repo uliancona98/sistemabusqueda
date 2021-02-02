@@ -24,7 +24,7 @@ function searchQuery(strValue) {
 
         }
     };
-    let phpFile = 'operations.php';
+    let phpFile = 'op.php';
     let variable = 'search';
     xmlHttp.open('GET', `${phpFile}?${variable}=${strValue}`, true);
     xmlHttp.send();
